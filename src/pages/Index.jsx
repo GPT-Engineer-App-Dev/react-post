@@ -1,23 +1,27 @@
 import { useState } from "react";
-import { Container, VStack, HStack, Textarea, Button, Box, Text, IconButton } from "@chakra-ui/react";
+import { Container, VStack, HStack, Textarea, Button, Box, Text, IconButton, Spinner, Alert, AlertIcon } from "@chakra-ui/react";
 import { FaThumbsUp, FaHeart, FaLaugh } from "react-icons/fa";
+import { usePosts, useAddPost, useAddReaction } from "../api/supabase";
 
 const Index = () => {
-  const [posts, setPosts] = useState([]);
   const [newPost, setNewPost] = useState("");
+  const { data: posts, isLoading: postsLoading, error: postsError } = usePosts();
+  const addPostMutation = useAddPost();
+  const addReactionMutation = useAddReaction();
 
   const handlePost = () => {
     if (newPost.trim() !== "") {
-      setPosts([{ content: newPost, reactions: { thumbsUp: 0, heart: 0, laugh: 0 } }, ...posts]);
+      addPostMutation.mutate({ title: newPost, body: newPost });
       setNewPost("");
     }
   };
 
-  const handleReaction = (index, reaction) => {
-    const updatedPosts = [...posts];
-    updatedPosts[index].reactions[reaction]++;
-    setPosts(updatedPosts);
+  const handleReaction = (postId, reaction) => {
+    addReactionMutation.mutate({ post_id: postId, emoji: reaction });
   };
+
+  if (postsLoading) return <Spinner />;
+  if (postsError) return <Alert status="error"><AlertIcon />{postsError.message}</Alert>;
 
   return (
     <Container centerContent maxW="container.md" p={4}>
@@ -27,37 +31,37 @@ const Index = () => {
           value={newPost}
           onChange={(e) => setNewPost(e.target.value)}
         />
-        <Button onClick={handlePost} colorScheme="blue" width="100%">
+        <Button onClick={handlePost} colorScheme="blue" width="100%" isLoading={addPostMutation.isLoading}>
           Post
         </Button>
         <VStack spacing={4} width="100%">
-          {posts.map((post, index) => (
-            <Box key={index} p={4} borderWidth="1px" borderRadius="md" width="100%">
-              <Text mb={2}>{post.content}</Text>
+          {posts.map((post) => (
+            <Box key={post.id} p={4} borderWidth="1px" borderRadius="md" width="100%">
+              <Text mb={2}>{post.body}</Text>
               <HStack spacing={4}>
                 <HStack>
                   <IconButton
                     aria-label="Thumbs Up"
                     icon={<FaThumbsUp />}
-                    onClick={() => handleReaction(index, "thumbsUp")}
+                    onClick={() => handleReaction(post.id, "👍")}
                   />
-                  <Text>{post.reactions.thumbsUp}</Text>
+                  <Text>{post.reactions?.filter(r => r.emoji === "👍").length || 0}</Text>
                 </HStack>
                 <HStack>
                   <IconButton
                     aria-label="Heart"
                     icon={<FaHeart />}
-                    onClick={() => handleReaction(index, "heart")}
+                    onClick={() => handleReaction(post.id, "❤️")}
                   />
-                  <Text>{post.reactions.heart}</Text>
+                  <Text>{post.reactions?.filter(r => r.emoji === "❤️").length || 0}</Text>
                 </HStack>
                 <HStack>
                   <IconButton
                     aria-label="Laugh"
                     icon={<FaLaugh />}
-                    onClick={() => handleReaction(index, "laugh")}
+                    onClick={() => handleReaction(post.id, "😂")}
                   />
-                  <Text>{post.reactions.laugh}</Text>
+                  <Text>{post.reactions?.filter(r => r.emoji === "😂").length || 0}</Text>
                 </HStack>
               </HStack>
             </Box>
